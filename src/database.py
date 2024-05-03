@@ -141,3 +141,9 @@ def delete_event(event_id):
 
     conn.commit()
     conn.close()
+
+
+def register_user_to_event(user_id, event_id):
+    # Database logic to add user to the event
+    # Assuming a function that takes user_id and event_id and adds to the event registration table
+    print(f"Registering user {user_id} to event {event_id}")
