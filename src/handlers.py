@@ -120,10 +120,9 @@ async def admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def back_and_cancel_button():
-    back_button = KeyboardButton(text="Back")
-    cancel_button = KeyboardButton(text="Cancel")
-    custom_keyboard = [[back_button, cancel_button]]
-    reply_markup = ReplyKeyboardMarkup(custom_keyboard, one_time_keyboard=True, resize_keyboard=True)
+    back_button = InlineKeyboardButton("Back", callback_data="back")
+    cancel_button = InlineKeyboardButton("Cancel", callback_data="cancel")
+    reply_markup = InlineKeyboardMarkup([[back_button, cancel_button]])
     return reply_markup
 
 
@@ -216,26 +215,26 @@ async def event_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def back_button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    previous_state = context.user_data.get('previous_state', ConversationHandler.END)
     await query.answer()
+    previous_state = context.user_data.get('previous_state', EVENT_TEXT)  # Default to EVENT_TEXT if not found
+    await query.edit_message_text("Going back...", reply_markup=back_and_cancel_button())
     return previous_state
 
 
 async def cancel_button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("Are you sure you want to cancel the event creation? (yes/no)")
+    await query.edit_message_text("Are you sure you want to cancel the event creation? (yes/no)")
 
 
 async def confirm_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text.lower() == 'yes':
-        user = update.effective_user
-        await update.message.reply_text(f'Event creation cancelled by {user.first_name}.')
+        await update.message.reply_text(f'Event creation cancelled.')
         return ConversationHandler.END
     else:
-        previous_state = context.user_data.get('previous_state', ConversationHandler.END)
+        # Redirect them back to the previous state or the start of the conversation
+        previous_state = context.user_data.get('previous_state', EVENT_TEXT)
         return previous_state
-
 
 conv_handler = ConversationHandler(
     entry_points=[MessageHandler(filters.Regex('^Create Event$'), create_event_callback)],
