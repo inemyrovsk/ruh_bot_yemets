@@ -119,10 +119,13 @@ async def admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("You are not authorized to perform this action.")
 
 
-def back_and_cancel_button():
+def back_and_cancel_button(event_confirmation=False):
     back_button = InlineKeyboardButton("Back", callback_data="back")
     cancel_button = InlineKeyboardButton("Cancel", callback_data="cancel")
     reply_markup = InlineKeyboardMarkup([[back_button, cancel_button]])
+    if event_confirmation:
+        confirm_button = InlineKeyboardButton("Confirm", callback_data="confirm")
+        reply_markup = InlineKeyboardMarkup([[back_button, cancel_button, confirm_button]])
     return reply_markup
 
 
@@ -169,6 +172,7 @@ async def event_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id in ADMIN_IDS:
         event_time = update.message.text
         context.user_data['event_time'] = event_time
+        context.user_data['previous_state'] = EVENT_TIME
         reply_markup = back_and_cancel_button()
 
         await update.message.reply_text("Please enter the event location.", reply_markup=reply_markup)
@@ -183,21 +187,22 @@ async def event_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         event_text = context.user_data['event_text']
         event_image_path = context.user_data['event_image']
         event_time = context.user_data['event_time']
+        context.user_data['previous_state'] = EVENT_LOCATION
         event_text = f"{event_text}\n\nTime: {event_time}\nLocation: {event_location}\n event_id: {event_id}"
-        await update.message.reply_photo(photo=event_image_path, caption=event_text)
-        await update.message.reply_text("Do you want to add this event to the database? (yes/no)")
+        await update.message.reply_photo(photo=event_image_path, caption=event_text, reply_markup=back_and_cancel_button(event_confirmation=True))
         return EVENT_CONFIRMATION
 
 
 async def event_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
     if update.effective_user.id in ADMIN_IDS:
-        if update.message.text.lower() == 'yes':
+        if query.data == 'confirm':
             event_id = context.user_data['event_id']
             event_text = context.user_data['event_text']
             event_image_path = context.user_data['event_image']
             event_time = context.user_data['event_time']
             event_location = context.user_data['event_location']
-
+            context.user_data['previous_state'] = EVENT_CONFIRMATION
             events_button = KeyboardButton(text="Show all Events")
             custom_keyboard = [[events_button]]
             reply_markup = ReplyKeyboardMarkup(custom_keyboard, one_time_keyboard=True, resize_keyboard=True)
@@ -207,17 +212,37 @@ async def event_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 custom_keyboard.append([admin_button])
 
             add_event(event_id, event_text, event_image_path, event_time, event_location)
-            await update.message.reply_text("Event added to the database.", reply_markup=reply_markup)
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="Event added to the database.",
+                                           reply_markup=reply_markup)
             return ConversationHandler.END
-        else:
-            return EVENT_LOCATION
 
 
 async def back_button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     previous_state = context.user_data.get('previous_state', EVENT_TEXT)  # Default to EVENT_TEXT if not found
-    await query.edit_message_text("Going back...", reply_markup=back_and_cancel_button())
+
+    if previous_state == EVENT_TEXT:
+        await query.edit_message_text(
+            "Please enter the text for the event:",
+            reply_markup=back_and_cancel_button()
+        )
+    elif previous_state == EVENT_IMAGE:
+        await query.edit_message_text(
+            "Please upload the event image:",
+            reply_markup=back_and_cancel_button()
+        )
+    elif previous_state == EVENT_TIME:
+        await query.edit_message_text(
+            "Please enter the event time:",
+            reply_markup=back_and_cancel_button()
+        )
+    elif previous_state == EVENT_LOCATION:
+        await query.edit_message_text(
+            "Please enter the event location:",
+            reply_markup=back_and_cancel_button()
+        )
+
     return previous_state
 
 
@@ -243,7 +268,7 @@ conv_handler = ConversationHandler(
         EVENT_IMAGE: [MessageHandler(filters.PHOTO, event_image)],
         EVENT_TIME: [MessageHandler(filters.TEXT, event_time)],
         EVENT_LOCATION: [MessageHandler(filters.TEXT, event_location)],
-        EVENT_CONFIRMATION: [MessageHandler(filters.TEXT, event_confirmation)],
+        EVENT_CONFIRMATION: [CallbackQueryHandler(event_confirmation, pattern='^confirm$')]
     },
     fallbacks=[
         CallbackQueryHandler(back_button_callback, pattern='^back$'),
