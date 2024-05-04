@@ -20,7 +20,7 @@ async def event_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def change_event_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if query.from_user.id in ADMIN_IDS:
-        pass
+        print("Change event")
         # Here you should send a form to the admin user to input the new event details
         # After the admin user inputs the new event details, call the change_event function to change the event
         # Then, send a preview of the changed event to the admin user
