@@ -1,9 +1,12 @@
+import os
+import main
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputMediaPhoto
 from telegram.ext import ContextTypes
 import sqlite3
 from database import register_user_to_event
 
 ADMIN_IDS = [534616491, 987654321]
+
 
 async def show_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Fetch events from the database
@@ -30,7 +33,8 @@ def fetch_all_events():
     conn.close()
 
     # Convert the events to a list of dictionaries
-    events = [{"id": str(id), "text": name, "image_path": image, "time": time, "location": location} for id, name, image, date, time, location in events]
+    events = [{"id": str(id), "text": name, "image_path": image, "time": time, "location": location} for
+              id, name, image, date, time, location in events]
 
     return events
 
@@ -40,6 +44,7 @@ async def send_event(update: Update, context: ContextTypes.DEFAULT_TYPE):
     index = context.user_data['current_event_index']
     event = events[index]
     event_id = event['id']
+    print(event_id)
 
     # Create navigation buttons
     navigation_buttons = [
@@ -118,3 +123,135 @@ async def register_button_callback(update: Update, context: ContextTypes.DEFAULT
         await query.edit_message_caption(caption=f"{query.message.caption}\n\nRegistered!")
     else:
         await query.answer("You are already registered for the event!")
+
+
+async def change_event_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    event_id = query.data.split('_')[2]  # Extract the event ID from the callback query
+
+    # Fetch event details from the database
+    event = fetch_event_by_id(event_id)
+
+    if event:
+        context.user_data['event_to_modify'] = event
+
+        reply_markup = main.change_event_buttons(event_id)
+
+        # Send a new message with the event details to modify
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=f"Choose what to change for event '{event['text']}':",
+            reply_markup=reply_markup
+        )
+    else:
+        await query.answer("Event not found.")
+
+
+async def change_event_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    detail_type, event_id = query.data.split('_')[1:3]
+
+    print(f"Handling change for {detail_type} with event ID {event_id}")  # Log for debugging
+
+    context.user_data['event_detail_type'] = detail_type
+    context.user_data['event_id_to_change'] = event_id
+
+    await query.edit_message_text(
+        text=f"Enter the new {detail_type} for the event:"
+    )
+
+async def receive_new_event_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    detail_type = context.user_data.get('event_detail_type')
+    event_id = context.user_data.get('event_id_to_change')
+    updated_event = fetch_event_by_id(event_id)
+
+    print("Received new event details", detail_type, event_id)
+    if detail_type == 'image':
+        photo = update.message.photo[-1]
+        print(photo)
+        file = await context.bot.get_file(photo.file_id)
+        local_image_path = os.path.join('images', f"{file.file_id}.jpg")
+        await file.download_to_drive(custom_path=local_image_path)
+        new_detail = local_image_path
+        updated_event["image_path"] = new_detail
+    elif detail_type == 'name':
+        updated_event['text'] = update.message.text
+        new_detail = update.message.text
+    else:
+        updated_event[detail_type] = update.message.text
+        new_detail = update.message.text
+
+    context.user_data['detail_type'] = detail_type
+    context.user_data['new_detail'] = new_detail
+
+    reply_markup = main.change_event_buttons(event_id)
+
+    # Send a new message with a preview of the updated event and an approval button
+    await update.message.reply_photo(
+        photo=updated_event['image_path'],
+        caption=f"{updated_event['text']}\nTime: {updated_event['time']}\nLocation: {updated_event['location']}",
+        reply_markup=reply_markup
+    )
+
+
+
+async def approve_changes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    event_id = context.user_data.get('event_id_to_change')  # Extract the event ID from the callback query
+    detail_type = context.user_data.get('detail_type')
+    new_detail = context.user_data.get('new_detail')
+    # Finalize the changes to the event in the database
+    if update_event_details(event_id, detail_type, new_detail):
+        updated_event = fetch_event_by_id(event_id)
+        await update.callback_query.message.reply_photo(
+            photo=updated_event['image_path'],
+            caption=f"{updated_event['text']}\nTime: {updated_event['time']}\nLocation: {updated_event['location']}",
+            reply_markup=main.main_buttons(admin=True)
+        )
+    else:
+        await query.answer("Failed to approve event changes.")
+
+
+def fetch_event_by_id(event_id):
+    conn = sqlite3.connect('database.db')
+    try:
+        c = conn.cursor()
+        c.execute("SELECT id, name, image, time, location FROM Events WHERE id=?", (event_id,))
+        event_row = c.fetchone()
+        print('Fetched event row:', event_row)  # Log the result to debug
+
+        if event_row:
+            return {"id": str(event_row[0]), "text": event_row[1], "image_path": event_row[2], "time": event_row[3], "location": event_row[4]}
+    except Exception as e:
+        print(f"Error fetching event by ID {event_id}: {e}")  # Log any errors
+    finally:
+        conn.close()
+    return None
+
+
+def update_event_details(event_id, detail_type, new_detail):
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    if detail_type == "name":
+        c.execute("UPDATE Events SET name=? WHERE id=?", (new_detail, event_id))
+    elif detail_type == "time":
+        c.execute("UPDATE Events SET time=? WHERE id=?", (new_detail, event_id))
+    elif detail_type == "image":
+        print("Updating image", new_detail)
+        c.execute("SELECT image FROM Events WHERE id=?", (event_id,))
+        result = c.fetchone()
+        print("Previous image", result)
+        if result is not None:
+            image_path = result[0]
+            # Delete previous image from local storage
+            print("Deleting previous image", image_path)
+            if os.path.isfile(image_path):
+                os.remove(image_path)
+
+        c.execute("UPDATE Events SET image=? WHERE id=?", (new_detail, event_id))
+        print("Updated image", new_detail)
+    elif detail_type == "location":
+        c.execute("UPDATE Events SET location=? WHERE id=?", (new_detail, event_id))
+    conn.commit()
+    conn.close()
+    return True

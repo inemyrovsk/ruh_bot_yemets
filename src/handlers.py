@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filt
 from database import check_user_registered, add_user, add_user_to_event, add_event
 import uuid
 import os
+import main
 
 ADMIN_IDS = [534616491, 987654321]
 
@@ -107,9 +108,7 @@ EVENT_TEXT, EVENT_IMAGE, EVENT_TIME, EVENT_LOCATION, EVENT_CONFIRMATION = range(
 async def admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id in ADMIN_IDS:
         create_event_button = KeyboardButton(text="Create Event")
-        change_event_button = KeyboardButton(text="Change Event")
-        delete_event_button = KeyboardButton(text="Delete Event")
-        custom_keyboard = [[create_event_button, change_event_button, delete_event_button]]
+        custom_keyboard = [[create_event_button]]
         reply_markup = ReplyKeyboardMarkup(custom_keyboard, one_time_keyboard=True, resize_keyboard=True)
         await update.message.reply_text(
             f"Choose an action.",
@@ -195,7 +194,8 @@ async def event_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def event_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    if update.effective_user.id in ADMIN_IDS:
+    ADMIN = bool(update.effective_user.id in ADMIN_IDS)
+    if ADMIN:
         if query.data == 'confirm':
             event_id = context.user_data['event_id']
             event_text = context.user_data['event_text']
@@ -203,13 +203,7 @@ async def event_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE)
             event_time = context.user_data['event_time']
             event_location = context.user_data['event_location']
             context.user_data['previous_state'] = EVENT_CONFIRMATION
-            events_button = KeyboardButton(text="Show all Events")
-            custom_keyboard = [[events_button]]
-            reply_markup = ReplyKeyboardMarkup(custom_keyboard, one_time_keyboard=True, resize_keyboard=True)
-
-            if update.effective_user.id in ADMIN_IDS:
-                admin_button = KeyboardButton(text="Admin")
-                custom_keyboard.append([admin_button])
+            reply_markup = main.main_buttons(ADMIN)
 
             add_event(event_id, event_text, event_image_path, event_time, event_location)
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Event added to the database.",
