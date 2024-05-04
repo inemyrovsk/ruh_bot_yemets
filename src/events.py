@@ -2,6 +2,9 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputMe
 from telegram.ext import ContextTypes
 import sqlite3
 from database import register_user_to_event
+
+ADMIN_IDS = [534616491, 987654321]
+
 async def show_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Fetch events from the database
     events = fetch_all_events()  # This function should return a list of event dictionaries
@@ -39,13 +42,24 @@ async def send_event(update: Update, context: ContextTypes.DEFAULT_TYPE):
     event_id = event['id']
 
     # Create navigation buttons
-    buttons = [
+    navigation_buttons = [
         InlineKeyboardButton("⬅️ Previous", callback_data="previous_event"),
         InlineKeyboardButton(f"{index + 1} / {len(events)}", callback_data="event"),
-        InlineKeyboardButton("Next ➡️", callback_data="next_event"),
+        InlineKeyboardButton("Next ➡️", callback_data="next_event")
+    ]
+
+    action_buttons = [
         InlineKeyboardButton("Приєднатися", callback_data=f"join_{event_id}")
     ]
-    reply_markup = InlineKeyboardMarkup([buttons])
+
+    admin_buttons = []
+    if update.effective_user.id in ADMIN_IDS:
+        admin_buttons = [
+            [InlineKeyboardButton("Change Event", callback_data=f"change_event_{event_id}")],
+            [InlineKeyboardButton("Delete Event", callback_data=f"delete_event_{event_id}")]
+        ]
+
+    reply_markup = InlineKeyboardMarkup([navigation_buttons, action_buttons] + admin_buttons)
 
     # Create the message text with event details
     message_text = f"{event['text']}\nTime: {event['time']}\nLocation: {event['location']}"
@@ -97,7 +111,10 @@ async def register_button_callback(update: Update, context: ContextTypes.DEFAULT
     user_id = update.effective_user.id
 
     # Function to add user to the event in the database
-    register_user_to_event(user_id, event_id)
+    is_registered = register_user_to_event(user_id, event_id)
 
-    await query.answer("You have been registered for the event!")
-    await query.edit_message_caption(caption=f"{query.message.caption}\n\nRegistered!")
+    if is_registered:
+        await query.answer("You have been registered for the event!")
+        await query.edit_message_caption(caption=f"{query.message.caption}\n\nRegistered!")
+    else:
+        await query.answer("You are already registered for the event!")

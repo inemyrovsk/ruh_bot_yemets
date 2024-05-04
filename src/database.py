@@ -40,6 +40,17 @@ def initialize_db():
         )
     ''')
 
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS EventParticipants (
+            user_name TEXT,
+            user_id INTEGER,
+            event_id TEXT,
+            PRIMARY KEY(user_id, event_id),
+            FOREIGN KEY(user_id) REFERENCES Users(id),
+            FOREIGN KEY(event_id) REFERENCES Events(id)
+        )
+    ''')
+
     # Create table for Groups
     c.execute('''
         CREATE TABLE IF NOT EXISTS Groups (
@@ -144,6 +155,19 @@ def delete_event(event_id):
 
 
 def register_user_to_event(user_id, event_id):
-    # Database logic to add user to the event
-    # Assuming a function that takes user_id and event_id and adds to the event registration table
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+
+    # Check if the user is already registered for the event
+    c.execute("SELECT * FROM EventParticipants WHERE user_id = ? AND event_id = ?", (user_id, event_id))
+    if c.fetchone() is not None:
+        conn.close()
+        return False  # User is already registered
+
+    # Register the user for the event
+    c.execute("INSERT INTO EventParticipants (user_id, event_id) VALUES (?, ?)", (user_id, event_id))
+    conn.commit()
+    conn.close()
     print(f"Registering user {user_id} to event {event_id}")
+    return True  # User was successfully registered
+
