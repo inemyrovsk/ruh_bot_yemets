@@ -2,7 +2,7 @@ from telegram import KeyboardButton, Update, ReplyKeyboardMarkup, InlineKeyboard
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 import handlers
 from events import show_events, navigate_event, register_button_callback, change_event_request, change_event_detail, \
-    receive_new_event_details, approve_changes
+    receive_new_event_details, approve_changes, show_joined_users
 from database import initialize_db
 from admin_panel import delete_event_callback
 
@@ -17,6 +17,7 @@ def main():
     application.add_handler(handlers.conv_handler)
     application.add_handler(CallbackQueryHandler(register_button_callback, pattern='^join_'))
     application.add_handler(CallbackQueryHandler(change_event_request, pattern='^change_event_'))
+    application.add_handler(CallbackQueryHandler(show_joined_users, pattern='^show_joined_'))
     application.add_handler(CallbackQueryHandler(change_event_detail, pattern='^change_(name|time|image|location)_'))
     application.add_handler(CallbackQueryHandler(approve_changes, pattern='^approve_changes_'))
     application.add_handler(MessageHandler(filters.TEXT | filters.PHOTO & ~filters.COMMAND, receive_new_event_details))

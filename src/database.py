@@ -171,3 +171,25 @@ def register_user_to_event(user_id, event_id):
     print(f"Registering user {user_id} to event {event_id}")
     return True  # User was successfully registered
 
+def fetch_users_by_event_id(event_id):
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+
+    # Execute the SELECT query with a JOIN to get the name and phone_number from the users table
+    c.execute("""
+        SELECT EventParticipants.user_id, Users.name, Users.phone_number 
+        FROM EventParticipants 
+        JOIN Users ON EventParticipants.user_id = Users.id 
+        WHERE EventParticipants.event_id=?
+    """, (event_id,))
+
+    # Fetch all rows as a list of tuples
+    rows = c.fetchall()
+
+    # Close the database connection
+    conn.close()
+
+    # Convert the list of tuples to a list of dictionaries
+    users = [{"user_id": row[0], "name": row[1], "phone_number": row[2]} for row in rows]
+
+    return users

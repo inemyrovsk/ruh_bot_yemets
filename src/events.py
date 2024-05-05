@@ -1,9 +1,10 @@
 import os
+import csv
 import main
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputMediaPhoto
-from telegram.ext import ContextTypes
 import sqlite3
-from database import register_user_to_event
+from telegram.ext import ContextTypes
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputMediaPhoto, InputFile
+from database import register_user_to_event, fetch_users_by_event_id
 
 ADMIN_IDS = [534616491, 987654321]
 
@@ -61,7 +62,8 @@ async def send_event(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id in ADMIN_IDS:
         admin_buttons = [
             [InlineKeyboardButton("Change Event", callback_data=f"change_event_{event_id}")],
-            [InlineKeyboardButton("Delete Event", callback_data=f"delete_event_{event_id}")]
+            [InlineKeyboardButton("Delete Event", callback_data=f"delete_event_{event_id}")],
+            [InlineKeyboardButton("Show Registered Users", callback_data=f"show_joined_{event_id}")]
         ]
 
     reply_markup = InlineKeyboardMarkup([navigation_buttons, action_buttons] + admin_buttons)
@@ -255,3 +257,30 @@ def update_event_details(event_id, detail_type, new_detail):
     conn.commit()
     conn.close()
     return True
+
+async def show_joined_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    event_id = query.data.split('_')[2]  # Extract the event ID from the callback query
+
+    # Fetch event details from the database
+    event = fetch_event_by_id(event_id)
+
+    if event:
+        context.user_data['event_to_show_users'] = event
+
+        # Fetch the users joined the event from the database
+        users = fetch_users_by_event_id(event_id)  # This function should return a list of user dictionaries
+
+        # Write the users into a CSV file
+        with open('users.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["User ID", "Name", "Phone Number"])  # Header
+            for user in users:
+                writer.writerow([user['user_id'], user['name'], user['phone_number']])
+
+        # Send the CSV file
+        with open(f'{event_id}.csv', 'rb') as file:
+            await context.bot.send_document(chat_id=query.message.chat_id, document=InputFile(file))
+
+    else:
+        await query.answer("Event not found.")
