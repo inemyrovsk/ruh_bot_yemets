@@ -1,6 +1,7 @@
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, \
     InputMediaPhoto
-from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filters, CallbackQueryHandler
+from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filters, CallbackQueryHandler, \
+    CommandHandler
 from database import check_user_registered, add_user, add_user_to_event, add_event
 import uuid
 import os
@@ -18,6 +19,8 @@ Join Events: Tap the "Join" button on event announcements to register. You'll re
 Support: Use the "Write to support" button for any questions or help.
 Ready to explore and join exciting events? Start by sending us a message!
 """
+
+SHARE_CONTACT, REQUEST_NAME = range(2)
 
 
 async def share_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -38,6 +41,7 @@ async def share_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Click the button below to share your contact.",
             reply_markup=reply_markup
         )
+        return SHARE_CONTACT
     else:
 
         events_button = KeyboardButton(text="Show all Events")
@@ -52,6 +56,7 @@ async def share_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
             bot_usage_help,
             reply_markup=reply_markup
         )
+        return ConversationHandler.END
 
 
 exception_message = "An error occurred while registering you. Please try again or Message Support."
@@ -59,25 +64,19 @@ exception_message = "An error occurred while registering you. Please try again o
 
 async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     contact = update.effective_message.contact
-    user = update.effective_user
+    context.user_data['phone_number'] = contact.phone_number
     if not check_user_registered(contact.user_id):
-        try:
-            add_user(contact.user_id, contact.phone_number, contact.first_name)
-            events_button = KeyboardButton(text="Show all Events")
-            custom_keyboard = [[events_button]]
+        await update.message.reply_text("Thanks! Now please enter your name:")
+        return REQUEST_NAME
 
-            if user.id in ADMIN_IDS:
-                admin_button = KeyboardButton(text="Admin")
-                custom_keyboard.append([admin_button])
 
-            reply_markup = ReplyKeyboardMarkup(custom_keyboard, one_time_keyboard=True, resize_keyboard=True)
-            await update.message.reply_text(
-                bot_usage_help,
-                reply_markup=reply_markup
-            )
-        except:
-            await update.message.reply_text(exception_message)
-            return
+async def name_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    name = update.message.text
+    phone_number = context.user_data['phone_number']  # Retrieve phone number from context
+    add_user(user.id, phone_number, name)
+    await update.message.reply_text("Thank you for registering!", reply_markup=main.main_buttons(user.id in ADMIN_IDS))
+    return ConversationHandler.END
 
 
 async def send_event_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE, event_id, event_text,
@@ -254,6 +253,18 @@ async def confirm_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Redirect them back to the previous state or the start of the conversation
         previous_state = context.user_data.get('previous_state', EVENT_TEXT)
         return previous_state
+
+
+registration_conv_handler = ConversationHandler(
+    entry_points=[CommandHandler("start", share_contact)],
+    states={
+        SHARE_CONTACT: [MessageHandler(filters.CONTACT, contact_handler)],
+        REQUEST_NAME: [MessageHandler(filters.TEXT, name_handler)],
+
+    },
+    fallbacks=[CommandHandler('cancel', lambda update, context: update.message.reply_text('Registration cancelled.'))]
+)
+
 
 conv_handler = ConversationHandler(
     entry_points=[MessageHandler(filters.Regex('^Create Event$'), create_event_callback)],
