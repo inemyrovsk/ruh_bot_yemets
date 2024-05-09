@@ -2,8 +2,10 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from database import add_event, change_event, delete_event
 import uuid
+import os
 
-ADMIN_IDS = [534616491, 987654321]
+ADMIN_IDS = [int(id.strip()) for id in os.environ["ADMIN_IDS"].split(',')]
+
 EVENT_DETAILS = range(1)
 
 

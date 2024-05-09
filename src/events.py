@@ -6,7 +6,9 @@ from telegram.ext import ContextTypes
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputMediaPhoto, InputFile
 from database import register_user_to_event, fetch_users_by_event_id
 
-ADMIN_IDS = [534616491, 987654321]
+ADMIN_IDS = [int(id.strip()) for id in os.environ["ADMIN_IDS"].split(',')]
+
+# [534616491]
 
 
 async def show_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -272,15 +274,36 @@ async def show_joined_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         users = fetch_users_by_event_id(event_id)  # This function should return a list of user dictionaries
 
         # Write the users into a CSV file
-        with open('users.csv', 'w', newline='') as file:
+        with open(f'guests-{event_id}.csv', 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(["User ID", "Name", "Phone Number"])  # Header
             for user in users:
                 writer.writerow([user['user_id'], user['name'], user['phone_number']])
 
         # Send the CSV file
-        with open(f'{event_id}.csv', 'rb') as file:
+        with open(f'guests-{event_id}.csv', 'rb') as file:
             await context.bot.send_document(chat_id=query.message.chat_id, document=InputFile(file))
 
     else:
         await query.answer("Event not found.")
+
+
+async def delete_event_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    event_id = query.data.split('_')[2]  # Extract the event ID from the callback query
+
+    # Delete the event from the database
+    delete_event(event_id)
+
+    # Send a confirmation message
+    await query.answer("Event deleted.")
+
+def delete_event(event_id):
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+
+    c.execute('DELETE FROM Events WHERE id = ?', (event_id,))
+    c.execute('DELETE FROM EventParticipants WHERE event_id = ?', (event_id,))
+
+    conn.commit()
+    conn.close()

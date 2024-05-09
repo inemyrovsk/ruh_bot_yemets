@@ -7,8 +7,8 @@ import uuid
 import os
 import main
 
-ADMIN_IDS = [534616491, 987654321]
-
+ADMIN_IDS = [int(id.strip()) for id in os.environ["ADMIN_IDS"].split(',')]
+# [534616491, 987654321]
 bot_usage_help = """
 🌟 Welcome to Ruh Event Bot! 🌟
 
