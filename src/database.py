@@ -23,7 +23,8 @@ def initialize_db():
             image TEXT,
             date TEXT,
             time TEXT,
-            location TEXT
+            location TEXT,
+            price FLOAT
         )
     ''')
 
@@ -117,7 +118,7 @@ def add_user_to_event(user_id, event_id):
     conn.close()
 
 
-def add_event(event_id, event_text, event_image_path, event_time, event_location):
+def add_event(event_id, event_text, event_image_path, event_time, event_location, event_price):
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
 
@@ -126,9 +127,10 @@ def add_event(event_id, event_text, event_image_path, event_time, event_location
     event_image_path = str(event_image_path)
     event_time = str(event_time)
     event_location = str(event_location)
+    event_price = float(event_price)
 
-    c.execute('INSERT INTO Events (id, name, image, date, time, location) VALUES (?, ?, ?, ?, ?, ?)',
-              (event_id, event_text, event_image_path, event_time, event_time, event_location))
+    c.execute('INSERT INTO Events (id, name, image, date, time, location, price) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              (event_id, event_text, event_image_path, event_time, event_time, event_location, event_price))
 
     conn.commit()
     conn.close()

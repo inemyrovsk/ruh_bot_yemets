@@ -7,7 +7,6 @@ import handlers
 from events import show_events, navigate_event, register_button_callback, change_event_request, change_event_detail, \
     receive_new_event_details, approve_changes, show_joined_users, delete_event_request, contact_support
 from database import initialize_db
-from admin_panel import delete_event_callback
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 def main():
@@ -22,11 +21,9 @@ def main():
     application.add_handler(CallbackQueryHandler(show_joined_users, pattern='^show_joined_'))
     application.add_handler(CallbackQueryHandler(change_event_request, pattern='^change_event_'))
     application.add_handler(CallbackQueryHandler(delete_event_request, pattern='^delete_event_'))
-    application.add_handler(CallbackQueryHandler(change_event_detail, pattern='^change_(name|time|image|location)_'))
+    application.add_handler(CallbackQueryHandler(change_event_detail, pattern='^change_(name|time|image|location|price)_'))
     application.add_handler(MessageHandler(filters.TEXT | filters.PHOTO & ~filters.COMMAND, receive_new_event_details))
     application.add_handler(CallbackQueryHandler(approve_changes, pattern='^approve_changes_'))
-
-    application.add_handler(CallbackQueryHandler(delete_event_callback, pattern='^delete_event$'))
 
     application.run_polling()
 
@@ -47,6 +44,7 @@ def change_event_buttons(event_id):
                [InlineKeyboardButton("Change Image", callback_data=f"change_image_{event_id}")],
                [InlineKeyboardButton("Change Time", callback_data=f"change_time_{event_id}")],
                [InlineKeyboardButton("Change Location", callback_data=f"change_location_{event_id}")],
+               [InlineKeyboardButton("Change Price", callback_data=f"change_price_{event_id}")],
                [InlineKeyboardButton("Approve Changes", callback_data=f"approve_changes_{event_id}")]]
     reply_markup = InlineKeyboardMarkup(buttons)
     return reply_markup

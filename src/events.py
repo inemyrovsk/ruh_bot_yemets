@@ -41,8 +41,8 @@ def fetch_all_events():
     conn.close()
 
     # Convert the events to a list of dictionaries
-    events = [{"id": str(id), "text": name, "image_path": image, "time": time, "location": location} for
-              id, name, image, date, time, location in events]
+    events = [{"id": str(id), "text": name, "image_path": image, "time": time, "location": location, "price": price} for
+              id, name, image, date, time, location, price in events]
 
     return events
 
@@ -76,7 +76,7 @@ async def send_event(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup([navigation_buttons, action_buttons] + admin_buttons)
 
     # Create the message text with event details
-    message_text = f"{event['text']}\nTime: {event['time']}\nLocation: {event['location']}"
+    message_text = f"{event['text']}\nTime: {event['time']}\nLocation: {event['location']}\n Price: {event['price']}"
 
     # Send or edit the message with the event
     if update.callback_query:
@@ -198,7 +198,7 @@ async def receive_new_event_details(update: Update, context: ContextTypes.DEFAUL
     # Send a new message with a preview of the updated event and an approval button
     await update.message.reply_photo(
         photo=updated_event['image_path'],
-        caption=f"{updated_event['text']}\nTime: {updated_event['time']}\nLocation: {updated_event['location']}",
+        caption=f"{updated_event['text']}\nTime: {updated_event['time']}\nLocation: {updated_event['location']}\n Price: {updated_event['price']}",
         reply_markup=reply_markup
     )
 
@@ -214,7 +214,7 @@ async def approve_changes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         updated_event = fetch_event_by_id(event_id)
         await update.callback_query.message.reply_photo(
             photo=updated_event['image_path'],
-            caption=f"{updated_event['text']}\nTime: {updated_event['time']}\nLocation: {updated_event['location']}",
+            caption=f"{updated_event['text']}\nTime: {updated_event['time']}\nLocation: {updated_event['location']}\n Price: {updated_event['price']}",
             reply_markup=main.main_buttons(admin=True)
         )
     else:
@@ -225,12 +225,12 @@ def fetch_event_by_id(event_id):
     conn = sqlite3.connect('database.db')
     try:
         c = conn.cursor()
-        c.execute("SELECT id, name, image, time, location FROM Events WHERE id=?", (event_id,))
+        c.execute("SELECT id, name, image, time, location, price FROM Events WHERE id=?", (event_id,))
         event_row = c.fetchone()
         print('Fetched event row:', event_row)  # Log the result to debug
 
         if event_row:
-            return {"id": str(event_row[0]), "text": event_row[1], "image_path": event_row[2], "time": event_row[3], "location": event_row[4]}
+            return {"id": str(event_row[0]), "text": event_row[1], "image_path": event_row[2], "time": event_row[3], "location": event_row[4], "price": event_row[5]}
     except Exception as e:
         print(f"Error fetching event by ID {event_id}: {e}")  # Log any errors
     finally:
@@ -261,6 +261,8 @@ def update_event_details(event_id, detail_type, new_detail):
         print("Updated image", new_detail)
     elif detail_type == "location":
         c.execute("UPDATE Events SET location=? WHERE id=?", (new_detail, event_id))
+    elif detail_type == "price":
+        c.execute("UPDATE Events SET price=? WHERE id=?", (new_detail, event_id))
     conn.commit()
     conn.close()
     return True
