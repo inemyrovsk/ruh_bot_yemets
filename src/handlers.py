@@ -30,7 +30,9 @@ async def share_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Hi {user.first_name}, you need to register before you can use this bot. Please share your contact."
         )
         contact_keyboard = KeyboardButton(text="Share My Contact", request_contact=True)
-        custom_keyboard = [[contact_keyboard]]
+        support_button = KeyboardButton(text="Підтримка")
+
+        custom_keyboard = [[contact_keyboard], [support_button]]
 
         if user.id in ADMIN_IDS:
             admin_button = KeyboardButton(text="Admin")
