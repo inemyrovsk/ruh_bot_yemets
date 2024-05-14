@@ -25,6 +25,11 @@ async def show_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Send the first event
     await send_event(update, context)
 
+async def contact_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    message_text = 'Завязатися з службою підтримки можливо з 8:00 до 23:00  за посиланням ➡️ <b>@Athlony</b>'
+    await update.message.reply_text(
+        text=message_text, parse_mode='HTML')
 
 def fetch_all_events():
     conn = sqlite3.connect('database.db')

@@ -43,9 +43,9 @@ async def share_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return SHARE_CONTACT
     else:
-
         events_button = KeyboardButton(text="Show all Events")
-        custom_keyboard = [[events_button]]
+        support_button = KeyboardButton(text="Підтримка")
+        custom_keyboard = [[events_button], [support_button]]
 
         if user.id in ADMIN_IDS:
             admin_button = KeyboardButton(text="Admin")

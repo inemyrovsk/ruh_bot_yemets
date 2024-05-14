@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
     ConversationHandler
 import handlers
 from events import show_events, navigate_event, register_button_callback, change_event_request, change_event_detail, \
-    receive_new_event_details, approve_changes, show_joined_users, delete_event_request
+    receive_new_event_details, approve_changes, show_joined_users, delete_event_request, contact_support
 from database import initialize_db
 from admin_panel import delete_event_callback
 
@@ -15,6 +15,7 @@ def main():
     application.add_handler(handlers.registration_conv_handler)
     application.add_handler(MessageHandler(filters.Regex('^Admin$'), handlers.admin_handler))
     application.add_handler(MessageHandler(filters.Regex('^Show all Events'), show_events))
+    application.add_handler(MessageHandler(filters.Regex('^Підтримка'), contact_support))
     application.add_handler(CallbackQueryHandler(navigate_event, pattern='^(next_event|previous_event)$'))
     application.add_handler(handlers.conv_handler)
     application.add_handler(CallbackQueryHandler(register_button_callback, pattern='^join_'))
