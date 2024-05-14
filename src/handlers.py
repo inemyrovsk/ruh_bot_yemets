@@ -101,7 +101,7 @@ async def join_button_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer("You have joined the event!")
 
 
-EVENT_TEXT, EVENT_IMAGE, EVENT_TIME, EVENT_LOCATION, EVENT_CONFIRMATION = range(5)
+EVENT_TEXT, EVENT_IMAGE, EVENT_TIME, EVENT_LOCATION, EVENT_PRICE, EVENT_CONFIRMATION = range(6)
 
 
 async def admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -176,20 +176,33 @@ async def event_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Please enter the event location.", reply_markup=reply_markup)
         return EVENT_LOCATION
 
-
 async def event_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id in ADMIN_IDS:
         event_location = update.message.text
         context.user_data['event_location'] = event_location
-        event_id = context.user_data['event_id']
-        event_text = context.user_data['event_text']
-        event_image_path = context.user_data['event_image']
-        event_time = context.user_data['event_time']
         context.user_data['previous_state'] = EVENT_LOCATION
-        event_text = f"{event_text}\n\nTime: {event_time}\nLocation: {event_location}\n event_id: {event_id}"
-        await update.message.reply_photo(photo=event_image_path, caption=event_text, reply_markup=back_and_cancel_button(event_confirmation=True))
-        return EVENT_CONFIRMATION
+        await update.message.reply_text("Please enter the price for the event:")
+        return EVENT_PRICE
 
+async def event_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id in ADMIN_IDS:
+        try:
+            price_text = update.message.text
+            price_amount = float(price_text)
+            context.user_data['event_price'] = price_amount
+            event_id = context.user_data['event_id']
+            event_text = context.user_data['event_text']
+            event_image_path = context.user_data['event_image']
+            event_time = context.user_data['event_time']
+            event_location = context.user_data['event_location']
+            event_price = context.user_data['event_price']
+            context.user_data['previous_state'] = EVENT_PRICE
+            event_text = f"{event_text}\n\nTime: {event_time}\nLocation: {event_location}\n event_id: {event_id}\n price: {event_price}"
+            await update.message.reply_photo(photo=event_image_path, caption=event_text, reply_markup=back_and_cancel_button(event_confirmation=True))
+            return EVENT_CONFIRMATION
+        except ValueError:
+            await update.message.reply_text("Invalid amount. Please enter a numeric value for the price.")
+            return EVENT_PRICE
 
 async def event_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -201,10 +214,11 @@ async def event_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE)
             event_image_path = context.user_data['event_image']
             event_time = context.user_data['event_time']
             event_location = context.user_data['event_location']
+            event_price = context.user_data['event_price']
             context.user_data['previous_state'] = EVENT_CONFIRMATION
             reply_markup = main.main_buttons(ADMIN)
 
-            add_event(event_id, event_text, event_image_path, event_time, event_location)
+            add_event(event_id, event_text, event_image_path, event_time, event_location, event_price)
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Event added to the database.",
                                            reply_markup=reply_markup)
             return ConversationHandler.END
@@ -273,6 +287,7 @@ conv_handler = ConversationHandler(
         EVENT_IMAGE: [MessageHandler(filters.PHOTO, event_image)],
         EVENT_TIME: [MessageHandler(filters.TEXT, event_time)],
         EVENT_LOCATION: [MessageHandler(filters.TEXT, event_location)],
+        EVENT_PRICE: [MessageHandler(filters.TEXT, event_price)],
         EVENT_CONFIRMATION: [CallbackQueryHandler(event_confirmation, pattern='^confirm$')]
     },
     fallbacks=[
