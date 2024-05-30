@@ -9,6 +9,8 @@ from events import show_events, navigate_event, register_button_callback, change
 from database import initialize_db
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
+
+
 def main():
     application = Application.builder().token(BOT_TOKEN).build()
     application.add_handler(handlers.registration_conv_handler)

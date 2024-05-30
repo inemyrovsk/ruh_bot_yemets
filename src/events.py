@@ -2,9 +2,10 @@ import os
 import csv
 import main
 import sqlite3
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, CallbackContext
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputMediaPhoto, InputFile
 from database import register_user_to_event, fetch_users_by_event_id
+from datetime import datetime
 
 ADMIN_IDS = [int(id.strip()) for id in os.environ["ADMIN_IDS"].split(',')]
 
@@ -238,6 +239,14 @@ def fetch_event_by_id(event_id):
     return None
 
 
+def validate_datetime(date_text):
+    try:
+        datetime.strptime(date_text, '%Y-%m-%d %H:%M')
+        return True
+    except ValueError:
+        return False
+
+
 def update_event_details(event_id, detail_type, new_detail):
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
@@ -245,6 +254,9 @@ def update_event_details(event_id, detail_type, new_detail):
         c.execute("UPDATE Events SET name=? WHERE id=?", (new_detail, event_id))
     elif detail_type == "time":
         c.execute("UPDATE Events SET time=? WHERE id=?", (new_detail, event_id))
+        if not validate_datetime(new_detail):
+            print("Incorrect date")
+
     elif detail_type == "image":
         print("Updating image", new_detail)
         c.execute("SELECT image FROM Events WHERE id=?", (event_id,))
@@ -293,6 +305,33 @@ async def show_joined_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     else:
         await query.answer("Event not found.")
+
+
+events = []
+
+
+def create_event(update: Update, context: CallbackContext):
+    try:
+        event_info = ' '.join(context.args)
+        event_name, event_datetime = event_info.rsplit(' ', 1)
+        event_datetime = datetime.strptime(event_datetime, '%Y-%m-%d %H:%M')
+
+        events.append({'name': event_name, 'datetime': event_datetime})
+        update.message.reply_text('Подію додано як', event_name)
+    except ValueError:
+        update.message.reply_text('Будь ласка, напишіть так: /create <Назва події> <YYYY-MM-DD HH:MM>')
+
+
+def list_events(update: Update, context: CallbackContext):
+    if not events:
+        update.message.reply_text('На жаль, ще не створено ні однієї події')
+    else:
+        message = 'Події:'
+        for event in events:
+            event_time_readable = event['datetime'].strftime('%A, %d %B %Y, %H:%M')
+            message += f'{event["name"]} - {event_time_readable}\n'
+
+
 
 
 async def delete_event_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
