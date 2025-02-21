@@ -8,3 +8,5 @@ RUN pip install -r /app/requirements.txt
 COPY ./src /srv/src
 
 WORKDIR /srv
+
+CMD ["python", "src/main.py"]
